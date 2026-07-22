@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cafe Komorebi</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+  :root{
+    --forest:#1F3527; --moss:#4A6741; --gold:#D9A441; --cream:#F7F1E3;
+    --charcoal:#2B2B24; --coral:#C9694E; --paper:#FFFDF8; --dark:#161F19;
+  }
+  html[data-theme="dark"]{
+    --cream:#14201A; --paper:#1B2A21; --charcoal:#F1EFE4;
+    --forest:#0F1E15; --dark:#0B120D;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Zen Kaku Gothic New',sans-serif;background:var(--cream);color:var(--charcoal);transition:background .25s,color .25s;}
+  h1,h2{font-family:'Shippori Mincho',serif;margin:0;}
+  button{cursor:pointer;font-family:inherit;}
+  .hidden{display:none !important;}
+
+  #themeToggleBtn{position:fixed;top:14px;right:14px;z-index:50;width:40px;height:40px;border-radius:999px;
+    border:1px solid rgba(31,53,39,.25);background:var(--paper);color:var(--charcoal);font-size:17px;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.12);}
+
+  #themeCustomizer{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.06);border-radius:999px;
+    padding:6px 12px;flex-wrap:wrap;}
+  #themeCustomizer label{font-size:12.5px;color:#8fa392;}
+  #accentColorInput{width:30px;height:30px;border:none;border-radius:8px;padding:0;background:none;cursor:pointer;}
+
+  /* ---- customer ---- */
+  #customerHeader{position:relative;background:linear-gradient(180deg,var(--forest),#2C4433);color:var(--cream);
+    padding:28px 20px 22px;border-radius:0 0 28px 28px;overflow:hidden;}
+  #customerHeader .dapple{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+  .dot{position:absolute;border-radius:9999px;filter:blur(2px);
+    background:radial-gradient(circle,rgba(217,164,65,.35) 0%,rgba(217,164,65,.08) 60%,transparent 75%);
+    animation:drift 18s ease-in-out infinite alternate;}
+  @keyframes drift{0%{transform:translate(0,0) scale(1);opacity:.6}50%{transform:translate(12px,-16px) scale(1.08);opacity:.9}100%{transform:translate(-10px,10px) scale(.95);opacity:.5}}
+  @media (prefers-reduced-motion:reduce){.dot{animation:none}}
+  .eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;opacity:.75;margin-bottom:6px;position:relative;z-index:1}
+  #customerHeader h1{font-size:22px;line-height:1.4;margin-bottom:14px;position:relative;z-index:1}
+  .tablePill{display:inline-block;background:rgba(217,164,65,.2);border:1px solid var(--gold);color:var(--gold);
+    border-radius:999px;padding:5px 14px;font-size:13px;font-weight:700;position:relative;z-index:1}
+
+  #catNav{display:flex;gap:8px;padding:16px 16px 4px;overflow-x:auto;}
+  .catBtn{flex-shrink:0;border:1px solid var(--moss);background:transparent;color:var(--moss);border-radius:999px;
+    padding:8px 16px;font-size:14px;font-weight:500;}
+  .catBtn.active{background:var(--forest);color:var(--cream);border-color:var(--forest);}
+
+  #menuList{padding:8px 16px 160px;display:flex;flex-direction:column;gap:10px;}
+  .menuItem{display:flex;justify-content:space-between;align-items:center;background:var(--paper);
+    border:1px solid rgba(31,53,39,.1);border-radius:16px;padding:14px 16px;gap:12px;}
+  .menuItem .name{font-weight:700;font-size:15.5px;margin-bottom:2px}
+  .menuItem .desc{font-size:13px;color:#5c5c50;margin-bottom:6px;line-height:1.35}
+  .menuItem .price{font-size:13.5px;font-weight:700;color:var(--moss)}
+  .qtyControl{display:flex;align-items:center;gap:8px}
+  .qtyBtn{width:32px;height:32px;border-radius:999px;border:1px solid var(--forest);background:var(--forest);color:var(--cream);font-size:17px;}
+  .qtyNum{min-width:18px;text-align:center;font-weight:700}
+
+  #cartBar{position:fixed;bottom:0;left:0;right:0;background:var(--paper);border-top:1px solid rgba(31,53,39,.15);
+    padding:12px 16px 16px;display:flex;flex-direction:column;gap:8px;box-shadow:0 -6px 20px rgba(31,53,39,.08);}
+  #noteInput{resize:none;border:1px solid rgba(31,53,39,.2);border-radius:12px;padding:8px 12px;font-family:inherit;font-size:13.5px;background:var(--cream);}
+  #placeOrderBtn{background:var(--coral);color:var(--paper);border:none;border-radius:14px;padding:14px;font-size:15px;font-weight:700;}
+  #placeOrderBtn:disabled{opacity:.6}
+  #orderError{color:var(--coral);font-size:12.5px}
+
+  #confirmScreen{display:flex;justify-content:center;align-items:center;min-height:100vh;padding:20px;}
+  .card{background:var(--paper);border-radius:24px;padding:40px 28px;text-align:center;max-width:340px;
+    box-shadow:0 12px 40px rgba(31,53,39,.12);width:100%;}
+  .card input{width:100%;box-sizing:border-box;border:1px solid rgba(31,53,39,.25);border-radius:12px;
+    padding:14px 16px;font-size:18px;text-align:center;margin-bottom:14px;font-family:inherit;background:var(--cream);}
+
+  .tableCard{background:var(--paper);border-radius:16px;padding:16px 12px;text-align:center;
+    border:2px solid transparent;display:flex;flex-direction:column;gap:8px;align-items:center;}
+  .tableCard .num{font-family:'Shippori Mincho',serif;font-size:22px;}
+  .tableStatusBadge{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+    padding:3px 10px;border-radius:999px;}
+  .tableStatusBadge.empty{background:rgba(74,103,65,.15);color:var(--moss);}
+  .tableStatusBadge.occupied{background:rgba(201,105,78,.15);color:var(--coral);}
+  .tableCard.empty{border-color:var(--moss);}
+  .tableCard button{width:100%;border:none;border-radius:10px;padding:8px;font-size:12.5px;font-weight:600;}
+  .sitBtn{background:var(--forest);color:var(--cream);}
+  .reserveBtn{background:transparent;border:1px solid var(--moss) !important;color:var(--moss);}
+
+  #reservationsList{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+  .reservationRow{background:var(--forest);border-radius:12px;padding:10px 14px;display:flex;justify-content:space-between;
+    align-items:center;font-size:13px;gap:8px;flex-wrap:wrap;}
+  .ghostBtn{border:1px solid var(--forest);background:transparent;color:var(--forest);border-radius:999px;
+    padding:10px 20px;font-size:14px;font-weight:600;}
+  .confirmMark{width:56px;height:56px;border-radius:999px;background:var(--moss);color:var(--cream);font-size:28px;
+    display:flex;align-items:center;justify-content:center;margin:0 auto 18px;}
+
+  /* ---- staff ---- */
+  #staffPage{min-height:100vh;background:var(--dark);color:var(--cream);padding:20px 18px 40px;transition:box-shadow .3s;}
+  #staffHeader{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
+  #staffTabs{display:flex;background:rgba(255,255,255,.06);border-radius:999px;padding:3px;gap:2px;}
+  .staffTabBtn{border:none;background:transparent;color:#8fa392;border-radius:999px;padding:7px 14px;font-size:13px;}
+  .staffTabBtn.active{background:var(--gold);color:var(--dark);font-weight:700;}
+  .soundToggle{border:1px solid var(--moss);background:transparent;color:var(--cream);border-radius:999px;padding:9px 16px;font-size:13.5px;}
+  .soundToggle.on{background:var(--gold);border-color:var(--gold);color:var(--dark);font-weight:700;}
+
+  #ordersGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;}
+  .orderCard{background:var(--forest);border-radius:18px;padding:16px;border:1px solid rgba(217,164,65,.15);}
+  .orderCard.new{border:1px solid var(--gold);box-shadow:0 0 0 1px rgba(217,164,65,.3);}
+  .orderCardHeader{display:flex;justify-content:space-between;margin-bottom:10px;font-size:13px;}
+  .orderTable{font-weight:700;color:var(--gold)}
+  .orderTime{color:#8fa392}
+  .orderItems{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;margin-bottom:8px;}
+  .orderItemLine{display:flex;justify-content:space-between;font-size:13.5px;}
+  .orderNote{font-size:12.5px;font-style:italic;color:var(--gold);margin-bottom:10px;}
+  .orderFooter{display:flex;justify-content:space-between;align-items:center;margin-top:6px;}
+  .actionBtn{background:var(--gold);color:var(--dark);border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;}
+  .actionBtnDone{background:var(--moss);color:var(--cream);border:none;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:700;}
+  .doneLabel{margin-top:26px;margin-bottom:10px;font-size:12.5px;text-transform:uppercase;letter-spacing:.1em;color:#7b8b7f;}
+  .doneRow{display:flex;flex-wrap:wrap;gap:8px;}
+  .doneChip{background:rgba(255,255,255,.05);border-radius:999px;padding:6px 14px;font-size:12.5px;color:#8fa392;}
+
+  #menuEditorToolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+  #menuEditorList{display:flex;flex-direction:column;gap:8px;}
+  .menuEditRow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--forest);border-radius:12px;padding:12px;}
+  .menuEditRow input{background:var(--dark);border:1px solid rgba(217,164,65,.2);border-radius:8px;color:var(--cream);
+    padding:8px 10px;font-size:13.5px;font-family:inherit;box-sizing:border-box;min-width:0;}
+  .editName{flex:1 1 140px} .editCat{flex:1 1 100px} .editPrice{flex:0 1 80px} .editDesc{flex:1 1 100%}
+  .ghostBtnDark{border:1px solid var(--moss);background:transparent;color:var(--cream);border-radius:8px;padding:8px 12px;font-size:12.5px;}
+  .removeBtn{border:1px solid var(--coral);background:transparent;color:var(--coral);border-radius:8px;padding:8px 12px;font-size:12.5px;}
+
+  #staffLoginScreen{display:flex;justify-content:center;align-items:center;min-height:100vh;background:var(--dark);color:var(--cream);padding:20px;}
+  #googleSignInBtn{background:var(--gold);color:var(--dark);border:none;border-radius:999px;padding:14px 28px;font-size:15px;font-weight:700;}
+</style>
+</head>
+<body>
+<button id="themeToggleBtn" title="Toggle light/dark">🌙</button>
+
+<!-- ============ CUSTOMER VIEW ============ -->
+<div id="customerView">
+  <div id="tablesScreen">
+    <div style="padding:28px 20px 14px;">
+      <div class="eyebrow" style="color:var(--forest)">Cafe Komorebi</div>
+      <h1 style="font-size:22px;margin:6px 0 8px;">Where would you like to sit?</h1>
+      <p style="font-size:14.5px;color:#5c5c50;margin:0;">Tap an empty table to sit now, or reserve one for later.</p>
+    </div>
+    <div id="tablesGrid" style="padding:10px 16px 40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;"></div>
+  </div>
+
+  <div id="reserveScreen" class="hidden">
+    <div class="card" style="margin:60px auto;">
+      <div class="eyebrow" style="color:var(--forest)">Reserve Table <span id="reserveTableLabel"></span></div>
+      <h1 style="font-size:20px;margin:8px 0 14px;">Book a time slot</h1>
+      <input id="reserveNameInput" placeholder="Your name" style="margin-bottom:10px;" />
+      <input id="reservePhoneInput" placeholder="Phone (optional)" style="margin-bottom:10px;" />
+      <input id="reserveTimeInput" type="datetime-local" style="margin-bottom:10px;" />
+      <button id="reserveSubmitBtn" style="width:100%;background:var(--coral);color:var(--paper);border:none;padding:14px;border-radius:14px;font-size:15px;font-weight:700;margin-bottom:10px;">Confirm reservation</button>
+      <button id="reserveCancelBtn" class="ghostBtn" style="width:100%;">Back</button>
+      <p id="reserveError" style="color:var(--coral);font-size:13px;margin-top:10px;"></p>
+    </div>
+  </div>
+
+  <div id="menuScreen" class="hidden">
+    <div id="customerHeader">
+      <div class="dapple" id="dappleField"></div>
+      <div class="eyebrow">Cafe Komorebi</div>
+      <h1>木漏れ日 — light through leaves</h1>
+      <div class="tablePill">Table <span id="tableLabel"></span></div>
+    </div>
+    <nav id="catNav"></nav>
+    <main id="menuList"></main>
+    <div id="cartBar" class="hidden">
+      <textarea id="noteInput" placeholder="Note for the kitchen (optional) — e.g. less sugar, no nuts" rows="1"></textarea>
+      <button id="placeOrderBtn">Place order</button>
+      <div id="orderError" class="hidden"></div>
+    </div>
+  </div>
+
+  <div id="confirmScreen" class="hidden">
+    <div class="card">
+      <div class="confirmMark">✓</div>
+      <h1 style="font-size:24px;margin-bottom:8px;">Order sent</h1>
+      <p style="font-size:14.5px;color:#5c5c50;margin:0 0 14px;">We've got it — it'll be with you shortly.</p>
+      <button id="orderMoreBtn" class="ghostBtn">Order something else</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ STAFF LOGIN ============ -->
+<div id="staffLoginScreen" class="hidden">
+  <div style="text-align:center">
+    <div class="eyebrow">Cafe Komorebi · Staff</div>
+    <h1 style="font-size:22px;margin:10px 0 22px;">Sign in to continue</h1>
+    <button id="googleSignInBtn">Sign in with Google</button>
+    <p id="staffLoginError" style="color:var(--coral);font-size:13px;margin-top:14px;"></p>
+  </div>
+</div>
+
+<!-- ============ STAFF DASHBOARD ============ -->
+<div id="staffPage" class="hidden">
+  <header id="staffHeader">
+    <div>
+      <div class="eyebrow">Cafe Komorebi · Staff</div>
+      <h1 id="staffTitle" style="font-size:24px;margin-top:4px;">Live orders</h1>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <div id="staffTabs">
+        <button class="staffTabBtn active" data-tab="orders">Orders</button>
+        <button class="staffTabBtn" data-tab="tables">Tables</button>
+        <button class="staffTabBtn" data-tab="menu">Menu</button>
+      </div>
+      <button id="soundToggleBtn" class="soundToggle">🔕 Enable alert sound</button>
+    </div>
+  </header>
+
+  <section id="ordersTabContent">
+    <div id="ordersGrid"></div>
+    <div id="doneLabel" class="doneLabel hidden">Recently completed</div>
+    <div id="doneRow" class="doneRow"></div>
+  </section>
+
+  <section id="tablesTabContent" class="hidden">
+    <div id="menuEditorToolbar">
+      <span style="font-size:12.5px;color:#8fa392;">Tap a table to toggle Empty / Occupied</span>
+      <button id="addTableBtn" class="actionBtn">+ Add table</button>
+    </div>
+    <div id="staffTablesGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-bottom:26px;"></div>
+    <div class="doneLabel" style="margin-top:0;">Upcoming reservations</div>
+    <div id="reservationsList"></div>
+  </section>
+
+  <section id="menuTabContent" class="hidden">
+    <div id="menuEditorToolbar">
+      <span id="menuSaveStatus" style="font-size:12.5px;color:#8fa392;">Edits sync to customer menu instantly</span>
+      <div id="themeCustomizer">
+        <label for="accentColorInput">Accent colour</label>
+        <input id="accentColorInput" type="color" value="#D9A441" />
+      </div>
+      <button id="addItemBtn" class="actionBtn">+ Add item</button>
+    </div>
+    <div id="menuEditorList"></div>
+  </section>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, doc, addDoc, setDoc, updateDoc, deleteDoc,
+  onSnapshot, query, orderBy, serverTimestamp, limit
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+// ====== FIREBASE CONFIG (hanabee-komorebi project) ======
+const firebaseConfig = {
+  apiKey: "AIzaSyDYP3HkTNhh6OMcPEUXK16Uv9rW968oHrA",
+  authDomain: "cafe-e31e2.firebaseapp.com",
+  projectId: "cafe-e31e2",
+  storageBucket: "cafe-e31e2.firebasestorage.app",
+  messagingSenderId: "534694645687",
+  appId: "1:534694645687:web:2aad293365c6d6e495a232"
+};
+// ==============================================
+
+const AUTHORIZED_STAFF_EMAILS = ["hello.hanabee@gmail.com"]; // add more emails here if needed
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+const isStaff = new URLSearchParams(location.search).get("staff") === "true";
+const $ = (id) => document.getElementById(id);
+
+/* ---------------- shared helpers ---------------- */
+function currency(n){ return `₹${n}`; }
+
+/* Light/dark: per-device preference, saved locally (not synced — each
+   customer or staff member picks what's comfortable on their own screen). */
+function applyStoredTheme(){
+  const saved = localStorage.getItem("komorebi-theme");
+  const mode = saved || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme", mode);
+  $("themeToggleBtn").textContent = mode === "dark" ? "☀️" : "🌙";
+}
+$("themeToggleBtn").addEventListener("click", () => {
+  const current = document.documentElement.getAttribute("data-theme");
+  const next = current === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("komorebi-theme", next);
+  $("themeToggleBtn").textContent = next === "dark" ? "☀️" : "🌙";
+});
+applyStoredTheme();
+
+/* Accent colour: this one IS shared — staff picks it once in Firestore
+   settings/theme, and it applies live for every customer + staff device. */
+function applyAccentColor(hex){
+  if (!hex) return;
+  document.documentElement.style.setProperty("--gold", hex);
+}
+onSnapshot(doc(db, "settings", "theme"), (snap) => {
+  const data = snap.data();
+  if (data && data.accentColor) {
+    applyAccentColor(data.accentColor);
+    const input = $("accentColorInput");
+    if (input) input.value = data.accentColor;
+  }
+});
+
+function renderDappleField(){
+  const field = $("dappleField");
+  if (!field) return;
+  for (let i=0;i<14;i++){
+    const d = document.createElement("div");
+    d.className = "dot";
+    const size = 40+Math.round(Math.random()*90);
+    d.style.width = size+"px"; d.style.height = size+"px";
+    d.style.top = Math.round(Math.random()*100)+"%";
+    d.style.left = Math.round(Math.random()*100)+"%";
+    d.style.animationDuration = (14+Math.round(Math.random()*18))+"s";
+    d.style.animationDelay = Math.round(Math.random()*10)+"s";
+    field.appendChild(d);
+  }
+}
+
+/* ================= CUSTOMER VIEW ================= */
+if (!isStaff) {
+  let table = null;
+  let tableDocId = null;
+  let menu = [];
+  let cart = {}; // id -> qty
+  let activeCat = null;
+  let allTables = [];
+  let reserveTargetTable = null;
+
+  renderDappleField();
+
+  function goToMenu(tableNumber, docId){
+    table = tableNumber;
+    tableDocId = docId;
+    $("tableLabel").textContent = table;
+    $("tablesScreen").classList.add("hidden");
+    $("reserveScreen").classList.add("hidden");
+    $("menuScreen").classList.remove("hidden");
+  }
+
+  onSnapshot(query(collection(db, "tables"), orderBy("number")), (snap) => {
+    allTables = [];
+    snap.forEach((d) => allTables.push({ id: d.id, ...d.data() }));
+    renderTablesGrid();
+  });
+
+  function renderTablesGrid(){
+    const grid = $("tablesGrid");
+    grid.innerHTML = "";
+    if (allTables.length === 0){
+      grid.innerHTML = `<div style="grid-column:1/-1;color:#5c5c50;font-size:14px;padding:10px 0;">No tables set up yet — ask staff to add tables.</div>`;
+      return;
+    }
+    allTables.forEach((t) => {
+      const isEmpty = t.status !== "occupied";
+      const card = document.createElement("div");
+      card.className = "tableCard" + (isEmpty ? " empty" : "");
+      card.innerHTML = `
+        <div class="num">Table ${t.number}</div>
+        <span class="tableStatusBadge ${isEmpty ? "empty" : "occupied"}">${isEmpty ? "Empty" : "Occupied"}</span>
+        ${isEmpty ? `<button class="sitBtn" data-id="${t.id}" data-num="${t.number}">Sit here</button>` : ""}
+        <button class="reserveBtn" data-id="${t.id}" data-num="${t.number}">Reserve later</button>
+      `;
+      grid.appendChild(card);
+    });
+    grid.querySelectorAll(".sitBtn").forEach((btn) => {
+      btn.onclick = async () => {
+        try { await updateDoc(doc(db,"tables",btn.dataset.id), { status: "occupied" }); }
+        catch(e){ console.error(e); }
+        goToMenu(btn.dataset.num, btn.dataset.id);
+      };
+    });
+    grid.querySelectorAll(".reserveBtn").forEach((btn) => {
+      btn.onclick = () => {
+        reserveTargetTable = { id: btn.dataset.id, num: btn.dataset.num };
+        $("reserveTableLabel").textContent = btn.dataset.num;
+        $("reserveError").textContent = "";
+        $("tablesScreen").classList.add("hidden");
+        $("reserveScreen").classList.remove("hidden");
+      };
+    });
+  }
+
+  $("reserveCancelBtn").addEventListener("click", () => {
+    $("reserveScreen").classList.add("hidden");
+    $("tablesScreen").classList.remove("hidden");
+  });
+
+  $("reserveSubmitBtn").addEventListener("click", async () => {
+    const name = $("reserveNameInput").value.trim();
+    const phone = $("reservePhoneInput").value.trim();
+    const time = $("reserveTimeInput").value;
+    if (!name || !time){
+      $("reserveError").textContent = "Please add your name and a time.";
+      return;
+    }
+    $("reserveSubmitBtn").disabled = true;
+    $("reserveSubmitBtn").textContent = "Booking…";
+    try {
+      await addDoc(collection(db,"reservations"), {
+        tableId: reserveTargetTable.id, tableNumber: reserveTargetTable.num,
+        name, phone, time, createdAt: serverTimestamp()
+      });
+      $("reserveNameInput").value = ""; $("reservePhoneInput").value = ""; $("reserveTimeInput").value = "";
+      $("reserveScreen").classList.add("hidden");
+      $("tablesScreen").classList.remove("hidden");
+    } catch(e){
+      $("reserveError").textContent = "Couldn't book: " + e.message;
+    }
+    $("reserveSubmitBtn").disabled = false;
+    $("reserveSubmitBtn").textContent = "Confirm reservation";
+  });
+
+  onSnapshot(query(collection(db, "menu")), (snap) => {
+    menu = [];
+    snap.forEach((d) => menu.push({ id: d.id, ...d.data() }));
+    if (!activeCat) {
+      const cats = [...new Set(menu.filter(m=>m.avail!==false).map(m=>m.cat))];
+      activeCat = cats[0] || null;
+    }
+    renderCatNav();
+    renderMenuList();
+  });
+
+  function renderCatNav(){
+    const cats = [...new Set(menu.filter(m=>m.avail!==false).map(m=>m.cat))];
+    $("catNav").innerHTML = "";
+    cats.forEach((c) => {
+      const btn = document.createElement("button");
+      btn.className = "catBtn" + (c===activeCat ? " active" : "");
+      btn.textContent = c;
+      btn.onclick = () => { activeCat = c; renderCatNav(); renderMenuList(); };
+      $("catNav").appendChild(btn);
+    });
+  }
+
+  function renderMenuList(){
+    const list = $("menuList");
+    list.innerHTML = "";
+    menu.filter(m=>m.cat===activeCat && m.avail!==false).forEach((m) => {
+      const qty = cart[m.id] || 0;
+      const row = document.createElement("div");
+      row.className = "menuItem";
+      row.innerHTML = `
+        <div>
+          <div class="name">${m.name}</div>
+          <div class="desc">${m.desc||""}</div>
+          <div class="price">${currency(m.price)}</div>
+        </div>
+        <div class="qtyControl">
+          ${qty>0 ? `<button class="qtyBtn" data-action="minus" data-id="${m.id}">−</button><span class="qtyNum">${qty}</span>` : ""}
+          <button class="qtyBtn" data-action="plus" data-id="${m.id}">+</button>
+        </div>`;
+      list.appendChild(row);
+    });
+    list.querySelectorAll("button[data-action]").forEach((btn) => {
+      btn.onclick = () => {
+        const id = btn.dataset.id;
+        const delta = btn.dataset.action === "plus" ? 1 : -1;
+        cart[id] = Math.max(0, (cart[id]||0) + delta);
+        renderMenuList();
+        renderCartBar();
+      };
+    });
+  }
+
+  function cartItems(){ return Object.entries(cart).filter(([,q])=>q>0); }
+  function cartTotal(){
+    return cartItems().reduce((sum,[id,q]) => {
+      const m = menu.find(x=>x.id===id);
+      return sum + (m ? m.price*q : 0);
+    }, 0);
+  }
+
+  function renderCartBar(){
+    const items = cartItems();
+    const bar = $("cartBar");
+    if (items.length === 0) { bar.classList.add("hidden"); return; }
+    bar.classList.remove("hidden");
+    const count = items.reduce((s,[,q])=>s+q,0);
+    $("placeOrderBtn").textContent = `Place order · ${count} item${count>1?"s":""} · ${currency(cartTotal())}`;
+  }
+
+  $("placeOrderBtn").addEventListener("click", async () => {
+    const items = cartItems();
+    if (items.length===0) return;
+    $("placeOrderBtn").disabled = true;
+    $("placeOrderBtn").textContent = "Sending…";
+    $("orderError").classList.add("hidden");
+    try {
+      const orderItems = items.map(([id,qty]) => {
+        const m = menu.find(x=>x.id===id);
+        return { id, name: m.name, price: m.price, qty };
+      });
+      await addDoc(collection(db,"orders"), {
+        table, items: orderItems, note: $("noteInput").value.trim(),
+        total: cartTotal(), status: "new", createdAt: serverTimestamp()
+      });
+      cart = {}; $("noteInput").value = "";
+      $("menuScreen").classList.add("hidden");
+      $("confirmScreen").classList.remove("hidden");
+    } catch(e){
+      console.error(e);
+      $("orderError").textContent = "Couldn't send: " + e.message;
+      $("orderError").classList.remove("hidden");
+      $("placeOrderBtn").disabled = false;
+      renderCartBar();
+    }
+  });
+
+  $("orderMoreBtn").addEventListener("click", () => {
+    $("confirmScreen").classList.add("hidden");
+    $("menuScreen").classList.remove("hidden");
+    $("placeOrderBtn").disabled = false;
+    renderCartBar();
+  });
+}
+
+/* ================= STAFF VIEW ================= */
+if (isStaff) {
+  let soundOn = false;
+  let audioCtx = null;
+  let knownIds = new Set();
+  let firstLoad = true;
+
+  function playChime(){
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      const now = audioCtx.currentTime;
+      [880,1320].forEach((freq,i)=>{
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        osc.type="sine"; osc.frequency.value=freq;
+        gain.gain.setValueAtTime(0, now+i*0.18);
+        gain.gain.linearRampToValueAtTime(0.18, now+i*0.18+0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now+i*0.18+0.5);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(now+i*0.18); osc.stop(now+i*0.18+0.55);
+      });
+    } catch(e){ console.error("chime failed", e); }
+  }
+
+  $("soundToggleBtn").addEventListener("click", () => {
+    soundOn = !soundOn;
+    $("soundToggleBtn").textContent = soundOn ? "🔔 Alerts on" : "🔕 Enable alert sound";
+    $("soundToggleBtn").classList.toggle("on", soundOn);
+    if (soundOn) playChime();
+  });
+
+  document.querySelectorAll(".staffTabBtn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".staffTabBtn").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      const tab = btn.dataset.tab;
+      const titles = { orders: "Live orders", tables: "Tables", menu: "Edit menu" };
+      $("staffTitle").textContent = titles[tab];
+      $("ordersTabContent").classList.toggle("hidden", tab !== "orders");
+      $("tablesTabContent").classList.toggle("hidden", tab !== "tables");
+      $("menuTabContent").classList.toggle("hidden", tab !== "menu");
+    });
+  });
+
+  // --- Auth gate ---
+  $("googleSignInBtn").addEventListener("click", async () => {
+    $("staffLoginError").textContent = "";
+    try {
+      await signInWithPopup(auth, new GoogleAuthProvider());
+    } catch(e){
+      $("staffLoginError").textContent = e.message;
+    }
+  });
+
+  onAuthStateChanged(auth, (user) => {
+    if (user && AUTHORIZED_STAFF_EMAILS.includes(user.email)) {
+      $("staffLoginScreen").classList.add("hidden");
+      $("staffPage").classList.remove("hidden");
+      startStaffListeners();
+    } else {
+      if (user) $("staffLoginError").textContent = "This Google account isn't authorized for staff access.";
+      $("staffPage").classList.add("hidden");
+      $("staffLoginScreen").classList.remove("hidden");
+    }
+  });
+
+  function startStaffListeners(){
+    // Orders: real-time
+    const q = query(collection(db,"orders"), orderBy("createdAt","desc"), limit(80));
+    onSnapshot(q, (snap) => {
+      const orders = [];
+      snap.forEach((d) => orders.push({ id: d.id, ...d.data() }));
+      const newOnes = orders.filter(o => !knownIds.has(o.id));
+      if (!firstLoad && newOnes.length > 0) {
+        if (soundOn) playChime();
+        document.getElementById("staffPage").style.boxShadow = "inset 0 0 0 6px #D9A441";
+        setTimeout(()=>{ document.getElementById("staffPage").style.boxShadow = "none"; }, 1400);
+      }
+      orders.forEach(o => knownIds.add(o.id));
+      firstLoad = false;
+      renderOrders(orders);
+    });
+
+    // Menu: real-time
+    onSnapshot(query(collection(db,"menu")), (snap) => {
+      const menu = [];
+      snap.forEach((d) => menu.push({ id: d.id, ...d.data() }));
+      renderMenuEditor(menu);
+    });
+
+    // Tables: real-time
+    onSnapshot(query(collection(db,"tables"), orderBy("number")), (snap) => {
+      const tables = [];
+      snap.forEach((d) => tables.push({ id: d.id, ...d.data() }));
+      renderStaffTables(tables);
+    });
+
+    // Reservations: real-time, soonest first
+    onSnapshot(query(collection(db,"reservations"), orderBy("time")), (snap) => {
+      const reservations = [];
+      snap.forEach((d) => reservations.push({ id: d.id, ...d.data() }));
+      renderReservations(reservations);
+    });
+  }
+
+  function renderStaffTables(tables){
+    const grid = $("staffTablesGrid");
+    grid.innerHTML = "";
+    if (tables.length === 0){
+      grid.innerHTML = `<div style="color:#8fa392;font-size:14px;">No tables yet — add your first one.</div>`;
+      return;
+    }
+    tables.forEach((t) => {
+      const isEmpty = t.status !== "occupied";
+      const card = document.createElement("div");
+      card.className = "tableCard";
+      card.style.background = "var(--forest)";
+      card.style.color = "var(--cream)";
+      card.innerHTML = `
+        <div class="num">Table ${t.number}</div>
+        <span class="tableStatusBadge ${isEmpty ? "empty" : "occupied"}">${isEmpty ? "Empty" : "Occupied"}</span>
+        <button class="ghostBtnDark toggleTableBtn" data-id="${t.id}" data-next="${isEmpty ? "occupied" : "empty"}">
+          Mark ${isEmpty ? "occupied" : "empty"}
+        </button>
+        <button class="removeBtn removeTableBtn" data-id="${t.id}">Remove</button>
+      `;
+      grid.appendChild(card);
+    });
+    grid.querySelectorAll(".toggleTableBtn").forEach((btn) => {
+      btn.onclick = async () => {
+        try { await updateDoc(doc(db,"tables",btn.dataset.id), { status: btn.dataset.next }); }
+        catch(e){ console.error(e); }
+      };
+    });
+    grid.querySelectorAll(".removeTableBtn").forEach((btn) => {
+      btn.onclick = async () => {
+        try { await deleteDoc(doc(db,"tables",btn.dataset.id)); }
+        catch(e){ console.error(e); }
+      };
+    });
+  }
+
+  $("addTableBtn").addEventListener("click", async () => {
+    try {
+      // Next table number = highest existing + 1
+      const nums = Array.from(document.querySelectorAll("#staffTablesGrid .num"))
+        .map(el => parseInt(el.textContent.replace("Table ",""), 10)).filter(n=>!isNaN(n));
+      const nextNum = nums.length ? Math.max(...nums) + 1 : 1;
+      await addDoc(collection(db,"tables"), { number: nextNum, status: "empty" });
+    } catch(e){ console.error(e); }
+  });
+
+  function renderReservations(reservations){
+    const list = $("reservationsList");
+    list.innerHTML = "";
+    if (reservations.length === 0){
+      list.innerHTML = `<div style="color:#8fa392;font-size:13.5px;">No upcoming reservations.</div>`;
+      return;
+    }
+    reservations.forEach((r) => {
+      const when = r.time ? new Date(r.time).toLocaleString([], {weekday:"short", hour:"2-digit", minute:"2-digit", day:"numeric", month:"short"}) : "";
+      const row = document.createElement("div");
+      row.className = "reservationRow";
+      row.innerHTML = `
+        <span><strong>Table ${r.tableNumber}</strong> · ${r.name}${r.phone ? " · "+r.phone : ""} · ${when}</span>
+        <span style="display:flex;gap:6px;">
+          <button class="actionBtn seatBtn" data-id="${r.id}" data-table-id="${r.tableId}">Seat now</button>
+          <button class="removeBtn cancelResBtn" data-id="${r.id}">Cancel</button>
+        </span>`;
+      list.appendChild(row);
+    });
+    list.querySelectorAll(".seatBtn").forEach((btn) => {
+      btn.onclick = async () => {
+        try {
+          await updateDoc(doc(db,"tables",btn.dataset.tableId), { status: "occupied" });
+          await deleteDoc(doc(db,"reservations",btn.dataset.id));
+        } catch(e){ console.error(e); }
+      };
+    });
+    list.querySelectorAll(".cancelResBtn").forEach((btn) => {
+      btn.onclick = async () => {
+        try { await deleteDoc(doc(db,"reservations",btn.dataset.id)); }
+        catch(e){ console.error(e); }
+      };
+    });
+  }
+
+  function renderOrders(orders){
+    const active = orders.filter(o=>o.status!=="done");
+    const done = orders.filter(o=>o.status==="done").slice(0,6);
+    const grid = $("ordersGrid");
+    grid.innerHTML = "";
+    if (active.length===0){
+      grid.innerHTML = `<div style="color:#8fa392;font-size:14px;padding:24px 4px;">No active orders. New orders will appear here — and chime if alerts are on.</div>`;
+    }
+    active.forEach((o) => {
+      const time = o.createdAt?.toDate ? o.createdAt.toDate().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : "";
+      const card = document.createElement("div");
+      card.className = "orderCard" + (o.status==="new" ? " new" : "");
+      card.innerHTML = `
+        <div class="orderCardHeader"><span class="orderTable">Table ${o.table}</span><span class="orderTime">${time}</span></div>
+        <ul class="orderItems">${o.items.map(it=>`<li class="orderItemLine"><span>${it.qty}× ${it.name}</span><span style="color:#8fa392">${currency(it.price*it.qty)}</span></li>`).join("")}</ul>
+        ${o.note ? `<div class="orderNote">Note: ${o.note}</div>` : ""}
+        <div class="orderFooter">
+          <span style="font-weight:700">${currency(o.total)}</span>
+          ${o.status==="new" ? `<button class="actionBtn" data-id="${o.id}" data-next="making">Start making</button>` : ""}
+          ${o.status==="making" ? `<button class="actionBtnDone" data-id="${o.id}" data-next="done">Mark done</button>` : ""}
+        </div>`;
+      grid.appendChild(card);
+    });
+    grid.querySelectorAll("button[data-next]").forEach((btn) => {
+      btn.onclick = async () => {
+        try { await updateDoc(doc(db,"orders",btn.dataset.id), { status: btn.dataset.next }); }
+        catch(e){ console.error(e); }
+      };
+    });
+
+    $("doneLabel").classList.toggle("hidden", done.length===0);
+    $("doneRow").innerHTML = done.map(o=>`<div class="doneChip">Table ${o.table} · ${currency(o.total)}</div>`).join("");
+  }
+
+  let saveTimer = null;
+  function scheduleMenuSave(itemId, data){
+    $("menuSaveStatus").textContent = "Saving…";
+    $("menuSaveStatus").style.color = "#D9A441";
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      try {
+        await setDoc(doc(db,"menu",itemId), data, { merge: true });
+        $("menuSaveStatus").textContent = "Saved ✓";
+        $("menuSaveStatus").style.color = "#4A6741";
+        setTimeout(()=>{ $("menuSaveStatus").textContent = "Edits sync to customer menu instantly"; $("menuSaveStatus").style.color="#8fa392"; }, 1200);
+      } catch(e){
+        $("menuSaveStatus").textContent = "Couldn't save: " + e.message;
+        $("menuSaveStatus").style.color = "#C9694E";
+      }
+    }, 600);
+  }
+
+  $("addItemBtn").addEventListener("click", async () => {
+    try {
+      await addDoc(collection(db,"menu"), { name:"New item", cat:"Coffee", price:100, desc:"", avail:true });
+    } catch(e){
+      $("menuSaveStatus").textContent = "Couldn't add: " + e.message;
+      $("menuSaveStatus").style.color = "#C9694E";
+    }
+  });
+
+  let accentSaveTimer = null;
+  $("accentColorInput").addEventListener("input", (e) => {
+    const hex = e.target.value;
+    applyAccentColor(hex); // instant local preview
+    clearTimeout(accentSaveTimer);
+    accentSaveTimer = setTimeout(async () => {
+      try { await setDoc(doc(db,"settings","theme"), { accentColor: hex }, { merge: true }); }
+      catch(err){ console.error("accent color save failed", err); }
+    }, 400);
+  });
+
+  function renderMenuEditor(menu){
+    const list = $("menuEditorList");
+    list.innerHTML = "";
+    menu.forEach((m) => {
+      const row = document.createElement("div");
+      row.className = "menuEditRow";
+      row.style.opacity = m.avail===false ? "0.5" : "1";
+      row.innerHTML = `
+        <input class="editName" value="${(m.name||"").replace(/"/g,'&quot;')}" />
+        <input class="editCat" value="${(m.cat||"").replace(/"/g,'&quot;')}" />
+        <input class="editPrice" type="number" value="${m.price||0}" />
+        <input class="editDesc" value="${(m.desc||"").replace(/"/g,'&quot;')}" placeholder="Description" />
+        <button class="ghostBtnDark toggleAvailBtn">${m.avail===false ? "Show" : "Hide"}</button>
+        <button class="removeBtn">Remove</button>`;
+      const [nameInput, catInput, priceInput, descInput] = row.querySelectorAll("input");
+      const onEdit = () => scheduleMenuSave(m.id, {
+        name: nameInput.value, cat: catInput.value,
+        price: Number(priceInput.value)||0, desc: descInput.value
+      });
+      nameInput.oninput = onEdit; catInput.oninput = onEdit; priceInput.oninput = onEdit; descInput.oninput = onEdit;
+      row.querySelector(".toggleAvailBtn").onclick = async () => {
+        try { await updateDoc(doc(db,"menu",m.id), { avail: m.avail===false ? true : false }); }
+        catch(e){ console.error(e); }
+      };
+      row.querySelector(".removeBtn").onclick = async () => {
+        try { await deleteDoc(doc(db,"menu",m.id)); }
+        catch(e){ console.error(e); }
+      };
+      list.appendChild(row);
+    });
+  }
+}
+</script>
+</body>
+</html>
