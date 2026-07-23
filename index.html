@@ -551,11 +551,14 @@ function startLiveOrders(){
         <div class="orderCardHeader"><span class="orderTable">Table ${o.table} · ${o.customerName||"Guest"}</span><span class="orderTime">${time}</span></div>
         <ul class="orderItems">${o.items.map((it,idx)=>`
           <li class="orderItemLine">
-            <span>${it.qty}× ${it.name}</span>
-            <span style="display:flex;align-items:center;gap:8px;">
-              <span style="opacity:.6">${currency(it.price*it.qty)}</span>
-              <button class="removeItemBtn" data-order-id="${o.id}" data-item-idx="${idx}" title="Remove item"
-                style="background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:6px;width:20px;height:20px;font-size:12px;line-height:1;padding:0;">×</button>
+            <span>${it.name}</span>
+            <span style="display:flex;align-items:center;gap:6px;">
+              <button class="orderQtyBtn" data-order-id="${o.id}" data-item-idx="${idx}" data-delta="-1" title="Remove one"
+                style="background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:6px;width:20px;height:20px;font-size:13px;line-height:1;padding:0;">−</button>
+              <span style="min-width:14px;text-align:center;">${it.qty}</span>
+              <button class="orderQtyBtn" data-order-id="${o.id}" data-item-idx="${idx}" data-delta="1" title="Add one"
+                style="background:transparent;border:1px solid var(--border);color:var(--text);border-radius:6px;width:20px;height:20px;font-size:13px;line-height:1;padding:0;">+</button>
+              <span style="opacity:.6;min-width:52px;text-align:right;">${currency(it.price*it.qty)}</span>
             </span>
           </li>`).join("")}</ul>
         ${o.note ? `<div class="orderNote">Note: ${o.note}</div>` : ""}
@@ -566,16 +569,26 @@ function startLiveOrders(){
         </div>`;
       grid.appendChild(card);
     });
-    grid.querySelectorAll(".removeItemBtn").forEach((btn) => {
+    grid.querySelectorAll(".orderQtyBtn").forEach((btn) => {
       btn.onclick = async () => {
         const order = active.find(o=>o.id===btn.dataset.orderId);
         if (!order) return;
         const idx = Number(btn.dataset.itemIdx);
-        const removedName = order.items[idx]?.name || "this item";
-        if (!confirm(`Remove ${removedName} from Table ${order.table}'s order?`)) return;
-        const remainingItems = order.items.filter((_,i)=>i!==idx);
+        const delta = Number(btn.dataset.delta);
+        const item = order.items[idx];
+        if (!item) return;
+        const newQty = item.qty + delta;
+
+        if (newQty <= 0){
+          if (!confirm(`Remove ${item.name} from Table ${order.table}'s order?`)) return;
+        }
+
+        const updatedItems = order.items
+          .map((it,i) => i===idx ? { ...it, qty: newQty } : it)
+          .filter((it) => it.qty > 0);
+
         try {
-          if (remainingItems.length === 0){
+          if (updatedItems.length === 0){
             // No items left — the order is effectively cancelled.
             await deleteDoc(doc(db,"orders",order.id));
             const stillActive = orders.some(o=>o.table===order.table && o.id!==order.id && o.status!=="done");
@@ -584,10 +597,10 @@ function startLiveOrders(){
               tblSnap.forEach(async (t) => await updateDoc(doc(db,"tables",t.id), { status:"empty" }));
             }
           } else {
-            const newTotal = remainingItems.reduce((s,it)=>s+it.price*it.qty,0);
-            await updateDoc(doc(db,"orders",order.id), { items: remainingItems, total: newTotal });
+            const newTotal = updatedItems.reduce((s,it)=>s+it.price*it.qty,0);
+            await updateDoc(doc(db,"orders",order.id), { items: updatedItems, total: newTotal });
           }
-        } catch(e){ console.error(e); alert("Couldn't remove item: " + e.message); }
+        } catch(e){ console.error(e); alert("Couldn't update item: " + e.message); }
       };
     });
     grid.querySelectorAll("button[data-next]").forEach((btn) => {
