@@ -88,10 +88,19 @@
   .doneRow{display:flex;flex-wrap:wrap;gap:8px;}
   .doneChip{background:rgba(0,0,0,.05);border-radius:999px;padding:6px 14px;font-size:12.5px;}
 
-  #historyList{display:flex;flex-direction:column;gap:8px;}
-  .historyRow{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;
-    display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;font-size:13.5px;}
-  .historyRow .items{opacity:.7;font-size:12.5px;width:100%;}
+  #historyList{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;}
+  .historyCard{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;}
+  .historyCardHeader{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;font-size:13px;gap:8px;}
+  .historyCardHeader .who{font-weight:700;}
+  .historyCardHeader .when{opacity:.55;font-size:12px;white-space:nowrap;}
+  .historyItems{list-style:none;margin:0 0 10px;padding:0;display:flex;flex-direction:column;gap:3px;}
+  .historyItemLine{display:flex;justify-content:space-between;font-size:13px;opacity:.75;}
+  .historyFooter{display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px dashed var(--border);}
+  .historyTotal{font-weight:700;font-size:15px;}
+  .historyStatusBadge{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:2px 9px;border-radius:999px;}
+  .historyStatusBadge.done{background:rgba(63,122,76,.15);color:var(--success);}
+  .historyStatusBadge.making{background:rgba(217,164,65,.2);color:#8a6417;}
+  .historyStatusBadge.new{background:rgba(201,105,78,.15);color:var(--danger);}
 
   #addTableBtn{margin-bottom:14px;}
 
@@ -102,6 +111,7 @@
   .menuEditRow input{background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);
     padding:8px 10px;font-size:13.5px;box-sizing:border-box;min-width:0;}
   .editName{flex:1 1 140px;} .editCat{flex:1 1 100px;} .editPrice{flex:0 1 80px;} .editDesc{flex:1 1 100%;}
+  select.editCat{appearance:auto;cursor:pointer;}
   .savedTick{font-size:12px;color:var(--success);}
 
   .schemeRow{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;}
@@ -637,14 +647,21 @@ function startHistory(){
     }
     orders.forEach((o) => {
       const time = o.createdAt?.toDate ? o.createdAt.toDate().toLocaleString([], {day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}) : "";
-      const itemsStr = o.items.map(it=>`${it.qty}× ${it.name}`).join(", ");
-      const row = document.createElement("div");
-      row.className = "historyRow";
-      row.innerHTML = `
-        <span><strong>${o.customerName||"Guest"}</strong> · Table ${o.table} · ${time}</span>
-        <span style="font-weight:700">${currency(o.total)}</span>
-        <span class="items">${itemsStr}</span>`;
-      list.appendChild(row);
+      const card = document.createElement("div");
+      card.className = "historyCard";
+      const statusLabel = o.status === "done" ? "Completed" : o.status === "making" ? "Making" : "New";
+      const statusClass = o.status === "done" ? "done" : o.status === "making" ? "making" : "new";
+      card.innerHTML = `
+        <div class="historyCardHeader">
+          <span class="who">Table ${o.table} · ${o.customerName||"Guest"}</span>
+          <span class="when">${time}</span>
+        </div>
+        <ul class="historyItems">${o.items.map(it=>`<li class="historyItemLine"><span>${it.qty}× ${it.name}</span><span>${currency(it.price*it.qty)}</span></li>`).join("")}</ul>
+        <div class="historyFooter">
+          <span class="historyTotal">${currency(o.total)}</span>
+          <span class="historyStatusBadge ${statusClass}">${statusLabel}</span>
+        </div>`;
+      list.appendChild(card);
     });
   });
 }
@@ -703,6 +720,36 @@ function startMenuEditor(){
     renderMenuEditor();
   });
 
+  const NEW_CAT_VALUE = "__new__";
+  function getAllCategories(){
+    const cats = new Set();
+    syncedMenu.forEach(m => { if (m.cat) cats.add(m.cat); });
+    draftRows.forEach(d => { if (d.cat) cats.add(d.cat); });
+    return [...cats].sort();
+  }
+  function categorySelectHtml(selectedCat){
+    const cats = getAllCategories();
+    if (selectedCat && !cats.includes(selectedCat)) cats.push(selectedCat);
+    const options = cats.map(c => `<option value="${c.replace(/"/g,'&quot;')}" ${c===selectedCat?"selected":""}>${c}</option>`).join("");
+    return `<select class="editCat">${options}<option value="${NEW_CAT_VALUE}">＋ New category…</option></select>`;
+  }
+  function wireCategorySelect(selectEl){
+    selectEl.addEventListener("change", () => {
+      if (selectEl.value === NEW_CAT_VALUE){
+        const newCat = prompt("New category name:");
+        if (newCat && newCat.trim()){
+          const opt = document.createElement("option");
+          opt.value = newCat.trim();
+          opt.textContent = newCat.trim();
+          opt.selected = true;
+          selectEl.insertBefore(opt, selectEl.lastElementChild);
+        } else {
+          selectEl.selectedIndex = 0;
+        }
+      }
+    });
+  }
+
   function renderMenuEditor(){
     const list = $("menuEditorList");
     list.innerHTML = "";
@@ -712,12 +759,16 @@ function startMenuEditor(){
       row.className = "menuEditRow unsaved";
       row.innerHTML = `
         <input class="editName" placeholder="Item name" value="${d.name}" />
-        <input class="editCat" placeholder="Category" value="${d.cat}" />
+        ${categorySelectHtml(d.cat)}
         <input class="editPrice" type="number" value="${d.price}" />
         <input class="editDesc" placeholder="Description" value="${d.desc}" />
         <button class="btn btnPrimary saveBtn">Save</button>
         <button class="btn btnDanger discardBtn">Discard</button>`;
-      const [nameI,catI,priceI,descI] = row.querySelectorAll("input");
+      const nameI = row.querySelector(".editName");
+      const catI = row.querySelector(".editCat");
+      const priceI = row.querySelector(".editPrice");
+      const descI = row.querySelector(".editDesc");
+      wireCategorySelect(catI);
       row.querySelector(".saveBtn").onclick = async () => {
         const name = nameI.value.trim();
         if (!name){ nameI.focus(); return; }
@@ -740,14 +791,18 @@ function startMenuEditor(){
       row.style.opacity = m.avail===false ? "0.5" : "1";
       row.innerHTML = `
         <input class="editName" value="${(m.name||"").replace(/"/g,'&quot;')}" />
-        <input class="editCat" value="${(m.cat||"").replace(/"/g,'&quot;')}" />
+        ${categorySelectHtml(m.cat)}
         <input class="editPrice" type="number" value="${m.price||0}" />
         <input class="editDesc" value="${(m.desc||"").replace(/"/g,'&quot;')}" placeholder="Description" />
         <button class="btn btnPrimary saveBtn">Save</button>
         <span class="savedTick hidden">Saved ✓</span>
         <button class="btn btnGhost toggleAvailBtn">${m.avail===false?"Show":"Hide"}</button>
         <button class="btn btnDanger removeBtn">Remove</button>`;
-      const [nameI,catI,priceI,descI] = row.querySelectorAll("input");
+      const nameI = row.querySelector(".editName");
+      const catI = row.querySelector(".editCat");
+      const priceI = row.querySelector(".editPrice");
+      const descI = row.querySelector(".editDesc");
+      wireCategorySelect(catI);
       row.querySelector(".saveBtn").onclick = async () => {
         try {
           await setDoc(doc(db,"menu",m.id), {
