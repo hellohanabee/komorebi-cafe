@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Cafe Komorebi — Staff</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap">
 <style>
   :root{
     --bg:#FFFFFF; --surface:#F6F5F1; --text:#1F2421;
@@ -12,8 +12,8 @@
     --danger:#C9694E; --success:#3F7A4C; --border:rgba(0,0,0,.12);
   }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:'Zen Kaku Gothic New',sans-serif;background:var(--bg);color:var(--text);}
-  h1,h2{font-family:'Shippori Mincho',serif;margin:0;}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);}
+  h1,h2{font-family:'Poppins',sans-serif;margin:0;}
   button{cursor:pointer;font-family:inherit;border:none;}
   input,textarea{font-family:inherit;}
   .hidden{display:none !important;}
@@ -215,7 +215,7 @@ const firebaseConfig = {
   messagingSenderId: "534694645687",
   appId: "1:534694645687:web:2aad293365c6d6e495a232"
 };
-const AUTHORIZED_STAFF_EMAILS = ["hello.hanabee@gmail.com","helloatthetree@gmail.com","sabnamrajoria@gmail.com"];
+const AUTHORIZED_STAFF_EMAILS = ["hello.hanabee@gmail.com"];
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -470,7 +470,7 @@ function startTakeOrder(){
     const note = $("cartNoteInput").value.trim();
     const newItems = items.map(([id,qty]) => {
       const m = menu.find(x=>x.id===id);
-      return { id, name: m.name, price: m.price, qty };
+      return { id, name: m.name, price: m.price, qty, served: false };
     });
     try {
       const snap = await getDocs(query(collection(db,"orders"), where("table","==",selectedTable)));
@@ -484,7 +484,10 @@ function startTakeOrder(){
         const mergedItems = [...existing.items];
         newItems.forEach((ni) => {
           const found = mergedItems.find(x=>x.id===ni.id);
-          if (found) found.qty += ni.qty; else mergedItems.push(ni);
+          // Adding more of an already-served item means some units are
+          // freshly ordered, so it goes back to pending until re-served.
+          if (found){ found.qty += ni.qty; found.served = false; }
+          else mergedItems.push(ni);
         });
         const mergedTotal = mergedItems.reduce((s,it)=>s+it.price*it.qty,0);
         const mergedNote = [existing.note, note].filter(Boolean).join(" | ");
@@ -560,8 +563,15 @@ function startLiveOrders(){
       card.innerHTML = `
         <div class="orderCardHeader"><span class="orderTable">Table ${o.table} · ${o.customerName||"Guest"}</span><span class="orderTime">${time}</span></div>
         <ul class="orderItems">${o.items.map((it,idx)=>`
-          <li class="orderItemLine">
-            <span>${it.name}</span>
+          <li class="orderItemLine" style="${it.served ? "opacity:.55;" : ""}">
+            <span style="display:flex;align-items:center;gap:8px;">
+              <button class="servedToggleBtn" data-order-id="${o.id}" data-item-idx="${idx}" title="${it.served ? "Mark pending" : "Mark served"}"
+                style="width:20px;height:20px;border-radius:6px;font-size:12px;line-height:1;padding:0;
+                  background:${it.served ? "var(--success)" : "transparent"};
+                  border:1px solid ${it.served ? "var(--success)" : "var(--border)"};
+                  color:${it.served ? "#fff" : "var(--text)"};">${it.served ? "✓" : ""}</button>
+              <span style="${it.served ? "text-decoration:line-through;" : ""}">${it.name}</span>
+            </span>
             <span style="display:flex;align-items:center;gap:6px;">
               <button class="orderQtyBtn" data-order-id="${o.id}" data-item-idx="${idx}" data-delta="-1" title="Remove one"
                 style="background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:6px;width:20px;height:20px;font-size:13px;line-height:1;padding:0;">−</button>
@@ -579,6 +589,16 @@ function startLiveOrders(){
         </div>`;
       grid.appendChild(card);
     });
+    grid.querySelectorAll(".servedToggleBtn").forEach((btn) => {
+      btn.onclick = async () => {
+        const order = active.find(o=>o.id===btn.dataset.orderId);
+        if (!order) return;
+        const idx = Number(btn.dataset.itemIdx);
+        const updatedItems = order.items.map((it,i) => i===idx ? { ...it, served: !it.served } : it);
+        try { await updateDoc(doc(db,"orders",order.id), { items: updatedItems }); }
+        catch(e){ console.error(e); }
+      };
+    });
     grid.querySelectorAll(".orderQtyBtn").forEach((btn) => {
       btn.onclick = async () => {
         const order = active.find(o=>o.id===btn.dataset.orderId);
@@ -594,7 +614,7 @@ function startLiveOrders(){
         }
 
         const updatedItems = order.items
-          .map((it,i) => i===idx ? { ...it, qty: newQty } : it)
+          .map((it,i) => i===idx ? { ...it, qty: newQty, served: delta > 0 ? false : it.served } : it)
           .filter((it) => it.qty > 0);
 
         try {
