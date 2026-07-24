@@ -278,17 +278,20 @@ $("saveThemeBtn").addEventListener("click", async () => {
     $("themeSaveStatus").textContent = "Couldn't save: " + e.message;
   }
 });
-onSnapshot(doc(db,"settings","theme"), (snap) => {
-  const data = snap.data();
-  if (data){
-    currentScheme = { ...currentScheme, ...data };
-    applyScheme(currentScheme);
-    renderThemeTab();
-  }
-});
+function startTheme(){
+  onSnapshot(doc(db,"settings","theme"), (snap) => {
+    const data = snap.data();
+    if (data){
+      currentScheme = { ...currentScheme, ...data };
+      applyScheme(currentScheme);
+      renderThemeTab();
+    }
+  });
+}
 
 $("googleSignInBtn").addEventListener("click", async () => {
   $("staffLoginError").textContent = "";
+  unlockAudio(); // this click is a real user gesture — use it to unlock audio early
   try { await signInWithPopup(auth, new GoogleAuthProvider()); }
   catch(e){ $("staffLoginError").textContent = e.message; }
 });
@@ -323,6 +326,7 @@ function startApp(){
   if (appStarted) return;
   appStarted = true;
   startSoundToggle();
+  startTheme();
   startTakeOrder();
   startLiveOrders();
   startHistory();
@@ -330,10 +334,17 @@ function startApp(){
   startMenuEditor();
 }
 
-let soundOn = false, audioCtx = null;
+let soundOn = true, audioCtx = null;
+function unlockAudio(){
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch(e){ /* ignore — will retry lazily when a chime actually plays */ }
+}
 function playChime(){
   try {
     if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
     const now = audioCtx.currentTime;
     [880,1320].forEach((freq,i)=>{
       const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
@@ -347,6 +358,9 @@ function playChime(){
   } catch(e){ console.error("chime failed", e); }
 }
 function startSoundToggle(){
+  // Sound defaults to ON; reflect that in the button right away.
+  $("soundToggleBtn").textContent = "🔔 Alert sound on";
+  $("soundToggleBtn").classList.add("on");
   $("soundToggleBtn").addEventListener("click", () => {
     soundOn = !soundOn;
     $("soundToggleBtn").textContent = soundOn ? "🔔 Alert sound on" : "🔕 Alert sound off";
