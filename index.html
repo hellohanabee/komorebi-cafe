@@ -217,6 +217,10 @@
       <button id="downloadTemplateBtn" class="btn btnGhost">Download CSV template</button>
       <button id="uploadCsvBtn" class="btn btnGhost">Upload menu CSV</button>
       <input type="file" id="menuCsvInput" accept=".csv" class="hidden" />
+      <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;opacity:.75;">
+        <input type="checkbox" id="hideMissingCheckbox" checked />
+        Hide items not in this file
+      </label>
       <span id="menuCsvStatus"></span>
     </div>
     <div id="menuEditorList"></div>
@@ -1014,19 +1018,46 @@ function startMenuEditor(){
         $("menuCsvStatus").textContent = "No valid rows found — check the template format.";
         return;
       }
-      $("menuCsvStatus").textContent = `Uploading ${rows.length} items…`;
-      let count = 0;
+      $("menuCsvStatus").textContent = `Syncing ${rows.length} items…`;
+
+      // Match against current menu by name (case-insensitive) so a
+      // weekly re-upload updates existing items instead of duplicating.
+      const byLowerName = new Map(syncedMenu.map(m => [m.name.trim().toLowerCase(), m]));
+      const uploadedLowerNames = new Set();
+      let updated = 0, added = 0;
+
       for (const r of rows){
-        await addDoc(collection(db,"menu"), {
-          name: r.name,
+        const key = r.name.trim().toLowerCase();
+        uploadedLowerNames.add(key);
+        const fields = {
+          name: r.name.trim(),
           cat: r.category || "Coffee",
           price: Number(r.price) || 0,
           desc: r.description || "",
           avail: r.available ? String(r.available).toLowerCase() !== "false" : true
-        });
-        count++;
+        };
+        const match = byLowerName.get(key);
+        if (match){
+          await setDoc(doc(db,"menu",match.id), fields, { merge:true });
+          updated++;
+        } else {
+          await addDoc(collection(db,"menu"), fields);
+          added++;
+        }
       }
-      $("menuCsvStatus").textContent = `Added ${count} items ✓`;
+
+      let hidden = 0;
+      if ($("hideMissingCheckbox").checked){
+        for (const m of syncedMenu){
+          const key = m.name.trim().toLowerCase();
+          if (!uploadedLowerNames.has(key) && m.avail !== false){
+            await updateDoc(doc(db,"menu",m.id), { avail:false });
+            hidden++;
+          }
+        }
+      }
+
+      $("menuCsvStatus").textContent = `Updated ${updated}, added ${added}${hidden ? `, hid ${hidden} old item${hidden>1?"s":""}` : ""} ✓`;
     } catch(err){
       $("menuCsvStatus").textContent = "Upload failed: " + err.message;
     }
