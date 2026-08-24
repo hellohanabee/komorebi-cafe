@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Cafe Komorebi — Staff</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap">
 <style>
@@ -145,6 +145,61 @@
   #teamList{display:flex;flex-direction:column;gap:8px;}
   .teamRow{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--border);
     border-radius:12px;padding:12px 16px;gap:10px;flex-wrap:wrap;font-size:13.5px;}
+  /* ---------------- MOBILE ---------------- */
+  /* iOS Safari auto-zooms into any input/select under 16px on focus —
+     force 16px on all form fields so tapping into them doesn't zoom. */
+  input, select, textarea { font-size: 16px !important; }
+  .catBtn, .badge, .roleTag, .qtyNum { font-size: 13px; } /* labels can stay small */
+
+  /* Comfortable tap targets everywhere (Apple/Google both recommend ~44px). */
+  .btn, .tabBtn, .soundToggle, .catBtn { min-height: 40px; }
+  .qtyBtn, .orderQtyBtn, .servedToggleBtn { min-width: 32px; min-height: 32px; }
+
+  /* Respect the iPhone home-indicator / gesture-bar area so the sticky
+     cart bar and bottom nav aren't covered by it. */
+  #cartBar { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+  body { padding-bottom: env(safe-area-inset-bottom); }
+
+  @media (max-width: 640px){
+    #appHeader{ flex-direction: column; align-items: stretch; gap: 10px; padding: 12px 14px; }
+    #appHeader > div:first-child{ display:flex; justify-content:space-between; align-items:center; }
+    #tabBar{ width: 100%; }
+    .soundToggle{ width: 100%; text-align:center; }
+
+    main.tabPanel{ padding: 12px; }
+
+    #tablesGrid, #staffTablesGrid{ grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+    .tableCard{ padding: 10px 6px; }
+    .tableCard .num{ font-size: 16px; }
+
+    .orderMetaRow{ flex-direction: column; }
+    .orderMetaRow input, #orderWaiterSelect{ flex: 1 1 auto; width: 100%; }
+
+    .menuItem{ padding: 12px; gap: 10px; }
+    .menuItem .name{ font-size: 14px; }
+
+    #ordersGrid, #historyList{ grid-template-columns: 1fr; }
+
+    .menuEditRow{ padding: 10px; }
+    .menuEditRow .btn, .menuEditRow select, .menuEditRow input{ flex: 1 1 45%; }
+    .editName, .editDesc{ flex: 1 1 100% !important; }
+
+    #menuCsvRow{ flex-direction: column; align-items: stretch; }
+    #menuCsvRow .btn{ width: 100%; }
+
+    #teamAddRow, #themeGrid{ flex-direction: column; }
+    #teamAddRow input, #teamAddRow select{ width: 100%; }
+    .teamRow{ flex-direction: column; align-items: flex-start; }
+
+    .schemeRow{ gap: 8px; }
+    .schemeSwatch{ flex: 1 1 45%; justify-content:center; }
+
+    #historyFilters{ flex-direction: column; align-items: stretch; }
+    #historyFilters input, #historyFilters button{ width: 100%; }
+    #historySummaryRow{ gap: 8px; }
+    .summaryCard{ flex: 1 1 30%; min-width: 0; padding: 10px 12px; }
+    .summaryCard .value{ font-size: 18px; }
+  }
 </style>
 </head>
 <body>
@@ -173,6 +228,9 @@
     <div class="orderMetaRow">
       <input id="orderNameInput" placeholder="Customer name" list="customerNamesList" />
       <input id="orderGuestsInput" type="number" min="1" placeholder="Guests" />
+      <select id="orderWaiterSelect" style="flex:1 1 160px;border:1px solid var(--border);border-radius:10px;padding:11px 14px;font-size:14.5px;background:var(--bg);color:var(--text);">
+        <option value="">Waiter taking order…</option>
+      </select>
     </div>
     <datalist id="customerNamesList"></datalist>
     <nav id="catNav"></nav>
@@ -224,6 +282,15 @@
       <span id="menuCsvStatus"></span>
     </div>
     <div id="menuEditorList"></div>
+  </main>
+
+  <main id="waitersTab" class="tabPanel hidden">
+    <div id="teamAddRow">
+      <input id="newWaiterName" type="text" placeholder="Waiter's name" />
+      <button id="addWaiterBtn" class="btn btnAccent">Add</button>
+    </div>
+    <p id="waiterStatus" style="font-size:12.5px;color:var(--danger);"></p>
+    <div id="waitersList"></div>
   </main>
 
   <main id="teamTab" class="tabPanel hidden">
@@ -281,6 +348,7 @@ const TAB_CONFIG = [
   { key:"history",label:"History",     roles:["admin"] },
   { key:"tables", label:"Tables",      roles:["admin"] },
   { key:"menu",   label:"Menu",        roles:["admin"] },
+  { key:"waiters",label:"Waiters",     roles:["admin"] },
   { key:"team",   label:"Team",        roles:["admin"] },
   { key:"theme",  label:"Theme",       roles:["admin"] },
 ];
@@ -414,6 +482,7 @@ function startApp(){
     startTables();
     startMenuEditor();
     startTeam();
+    startWaiters();
   }
 }
 
@@ -471,6 +540,15 @@ function startTakeOrder(){
     const names = new Set();
     snap.forEach(d => { const n = d.data().customerName; if (n && n !== "Guest") names.add(n); });
     $("customerNamesList").innerHTML = [...names].map(n=>`<option value="${n.replace(/"/g,'&quot;')}">`).join("");
+  });
+
+  // Waiter picker, kept in sync with the admin-managed roster.
+  onSnapshot(query(collection(db,"waiters"), orderBy("name")), (snap) => {
+    const select = $("orderWaiterSelect");
+    const current = select.value;
+    select.innerHTML = `<option value="">Waiter taking order…</option>` +
+      snap.docs.map(d => `<option value="${d.data().name.replace(/"/g,'&quot;')}">${d.data().name}</option>`).join("");
+    if ([...select.options].some(o=>o.value===current)) select.value = current;
   });
 
   function renderTableGrid(){
@@ -573,6 +651,7 @@ function startTakeOrder(){
     $("confirmOrderBtn").textContent = "Saving…";
     const name = $("orderNameInput").value.trim() || "Guest";
     const guests = Number($("orderGuestsInput").value) || null;
+    const waiterName = $("orderWaiterSelect").value || null;
     const note = $("cartNoteInput").value.trim();
     const newItems = items.map(([id,qty]) => {
       const m = menu.find(x=>x.id===id);
@@ -595,15 +674,21 @@ function startTakeOrder(){
         });
         const mergedTotal = mergedItems.reduce((s,it)=>s+it.price*it.qty,0);
         const mergedNote = [existing.note, note].filter(Boolean).join(" | ");
+        // Track every waiter who's added to this table's order, not just the first.
+        const waiterNames = new Set(existing.waiterNames || (existing.waiterName ? [existing.waiterName] : []));
+        if (waiterName) waiterNames.add(waiterName);
         await updateDoc(doc(db,"orders",existing.id), {
           items: mergedItems, total: mergedTotal, note: mergedNote,
           customerName: name || existing.customerName,
           guests: guests || existing.guests || null,
+          waiterName: waiterName || existing.waiterName || null,
+          waiterNames: [...waiterNames],
           updatedAt: serverTimestamp()
         });
       } else {
         await addDoc(collection(db,"orders"), {
           table: selectedTable, customerName: name, guests, items: newItems, note,
+          waiterName, waiterNames: waiterName ? [waiterName] : [],
           total: cartTotal(), status: "new", createdAt: serverTimestamp()
         });
         const tableDoc = tables.find(t=>t.number===selectedTable);
@@ -665,6 +750,7 @@ function startLiveOrders(){
           <span>
             <span class="orderTable">Table ${o.table} · ${o.customerName||"Guest"}</span>
             ${o.guests ? `<div class="orderMeta">${o.guests} guest${o.guests>1?"s":""}</div>` : ""}
+            ${(o.waiterNames&&o.waiterNames.length) ? `<div class="orderMeta">Served by ${o.waiterNames.join(", ")}</div>` : (o.waiterName ? `<div class="orderMeta">Served by ${o.waiterName}</div>` : "")}
           </span>
           <span class="orderTime">${time}</span>
         </div>
@@ -800,9 +886,13 @@ function startHistory(){
       card.className = "historyCard";
       const statusLabel = o.status === "done" ? "Completed" : o.status === "making" ? "Making" : "New";
       const statusClass = o.status === "done" ? "done" : o.status === "making" ? "making" : "new";
+      const waiterLine = (o.waiterNames&&o.waiterNames.length) ? o.waiterNames.join(", ") : (o.waiterName || "");
       card.innerHTML = `
         <div class="historyCardHeader">
-          <span class="who">Table ${o.table} · ${o.customerName||"Guest"}${o.guests ? ` · ${o.guests}p` : ""}</span>
+          <span class="who">
+            Table ${o.table} · ${o.customerName||"Guest"}${o.guests ? ` · ${o.guests}p` : ""}
+            ${waiterLine ? `<div style="font-weight:400;opacity:.55;font-size:11.5px;margin-top:2px;">Served by ${waiterLine}</div>` : ""}
+          </span>
           <span class="when">${time}</span>
         </div>
         <ul class="historyItems">${o.items.map(it=>`<li class="historyItemLine"><span>${it.qty}× ${it.name}</span><span>${currency(it.price*it.qty)}</span></li>`).join("")}</ul>
@@ -1120,6 +1210,51 @@ function startTeam(){
       $("newStaffEmail").value = "";
     } catch(e){
       $("teamStatus").textContent = "Couldn't add: " + e.message;
+    }
+  });
+}
+
+/* ---------------- WAITERS (admin) ---------------- */
+function startWaiters(){
+  onSnapshot(query(collection(db,"waiters"), orderBy("name")), (snap) => {
+    const waiters = [];
+    snap.forEach(d => waiters.push({ id:d.id, ...d.data() }));
+    renderWaiters(waiters);
+  });
+
+  function renderWaiters(waiters){
+    const list = $("waitersList");
+    list.innerHTML = "";
+    if (waiters.length === 0){
+      list.innerHTML = `<div style="opacity:.6;font-size:14px;">No waiters added yet.</div>`;
+      return;
+    }
+    waiters.forEach((w) => {
+      const row = document.createElement("div");
+      row.className = "teamRow";
+      row.innerHTML = `
+        <span>${w.name}</span>
+        <button class="btn btnDanger removeWaiterBtn" data-id="${w.id}">Remove</button>`;
+      list.appendChild(row);
+    });
+    list.querySelectorAll(".removeWaiterBtn").forEach((btn) => {
+      btn.onclick = async () => {
+        if (!confirm("Remove this waiter from the list?")) return;
+        try { await deleteDoc(doc(db,"waiters",btn.dataset.id)); }
+        catch(e){ alert("Couldn't remove: " + e.message); }
+      };
+    });
+  }
+
+  $("addWaiterBtn").addEventListener("click", async () => {
+    const name = $("newWaiterName").value.trim();
+    $("waiterStatus").textContent = "";
+    if (!name){ $("waiterStatus").textContent = "Enter a name."; return; }
+    try {
+      await addDoc(collection(db,"waiters"), { name, addedAt: serverTimestamp() });
+      $("newWaiterName").value = "";
+    } catch(e){
+      $("waiterStatus").textContent = "Couldn't add: " + e.message;
     }
   });
 }
